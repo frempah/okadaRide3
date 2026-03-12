@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>OkadaRide – Ghana</title>
+
+<!-- PWA Meta Tags -->
+<meta name="application-name" content="OkadaRide"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="OkadaRide"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#1B7A2F"/>
+<meta name="description" content="Ghana's Tricycle Ride App — Book across all 16 regions"/>
+
+<!-- PWA Icons for iPhone (Apple doesn't use manifest icons) -->
+<link rel="apple-touch-icon" href="okada-icon.svg"/>
+<link rel="icon" type="image/svg+xml" href="okada-icon.svg"/>
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json"/>
+
+<script>
+// Register service worker
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js")
+      .then(r => console.log("✅ OkadaRide SW registered"))
+      .catch(e => console.log("SW error:", e));
+  });
+}
+
+// PWA Install prompt
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show our custom install button after 3 seconds
+  setTimeout(() => {
+    const banner = document.getElementById("pwa-banner");
+    if(banner) banner.style.display = "flex";
+  }, 3000);
+});
+
+window.installPWA = async () => {
+  const banner = document.getElementById("pwa-banner");
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if(banner) banner.style.display = "none";
+  }
+};
+
+window.dismissPWA = () => {
+  const banner = document.getElementById("pwa-banner");
+  if(banner) banner.style.display = "none";
+  localStorage.setItem("pwa_dismissed", "1");
+};
+
+// Don't show if already dismissed
+window.addEventListener("DOMContentLoaded", () => {
+  if(localStorage.getItem("pwa_dismissed")){
+    const banner = document.getElementById("pwa-banner");
+    if(banner) banner.style.display = "none";
+  }
+});
+
+// Hide banner if already installed
+window.addEventListener("appinstalled", () => {
+  const banner = document.getElementById("pwa-banner");
+  if(banner) banner.style.display = "none";
+  console.log("✅ OkadaRide installed as PWA");
+});
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a2a0a;display:flex;justify-content:center;min-height:100vh}
+input,select{outline:none;font-family:'Nunito',sans-serif}
+button{cursor:pointer;border:none;font-family:'Nunito',sans-serif}
+::-webkit-scrollbar{display:none}
+@keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ping{0%{transform:scale(1);opacity:1}100%{transform:scale(2.4);opacity:0}}
+@keyframes roll{0%{transform:translateX(-8px)}50%{transform:translateX(8px)}100%{transform:translateX(-8px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes popIn{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- PWA Install Banner (Android) -->
+<div id="pwa-banner" style="display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:398px;background:linear-gradient(135deg,#0D4A1A,#1B7A2F);borderRadius:18px;padding:14px 16px;z-index:999;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.15)">
+  <img src="okada-icon.svg" style="width:44px;height:44px;border-radius:10px;flex-shrink:0"/>
+  <div style="flex:1">
+    <p style="color:#fff;font-weight:800;font-size:14px;font-family:'Nunito',sans-serif;margin:0">Install OkadaRide App</p>
+    <p style="color:rgba(255,255,255,.6);font-size:12px;font-family:'Nunito',sans-serif;margin:4px 0 0">Add to your home screen for faster access</p>
+  </div>
+  <button onclick="window.installPWA()" style="background:#FFB300;border:none;border-radius:10px;padding:8px 14px;color:#000;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito',sans-serif;flex-shrink:0">Install</button>
+  <button onclick="window.dismissPWA()" style="background:rgba(255,255,255,.15);border:none;border-radius:8px;padding:8px 10px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:'Nunito',sans-serif;flex-shrink:0">✕</button>
+</div>
+
+<!-- iOS Install Instructions Banner -->
+<div id="ios-banner" style="display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:398px;background:linear-gradient(135deg,#0D4A1A,#1B7A2F);border-radius:18px;padding:14px 16px;z-index:999;box-shadow:0 8px 32px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.15)">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+    <img src="okada-icon.svg" style="width:40px;height:40px;border-radius:10px"/>
+    <div>
+      <p style="color:#fff;font-weight:800;font-size:14px;font-family:'Nunito',sans-serif;margin:0">Install OkadaRide on iPhone</p>
+      <p style="color:rgba(255,255,255,.6);font-size:11px;font-family:'Nunito',sans-serif;margin:4px 0 0">Add to your home screen</p>
+    </div>
+    <button onclick="document.getElementById('ios-banner').style.display='none';localStorage.setItem('pwa_dismissed','1')" style="background:rgba(255,255,255,.15);border:none;border-radius:8px;padding:6px 10px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:'Nunito',sans-serif;margin-left:auto">✕</button>
+  </div>
+  <div style="display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,.1);border-radius:12px;padding:10px 12px">
+    <span style="font-size:20px;flex-shrink:0">1️⃣</span>
+    <p style="color:#fff;font-size:12px;font-family:'Nunito',sans-serif;margin:0;line-height:1.5">Tap the <strong>Share button</strong> <span style="font-size:14px">⬆️</span> at the bottom of Safari</p>
+  </div>
+  <div style="display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,.1);border-radius:12px;padding:10px 12px;margin-top:6px">
+    <span style="font-size:20px;flex-shrink:0">2️⃣</span>
+    <p style="color:#fff;font-size:12px;font-family:'Nunito',sans-serif;margin:0;line-height:1.5">Scroll down and tap <strong>"Add to Home Screen"</strong> then tap <strong>Add</strong></p>
+  </div>
+</div>
+
+<script>
+// Show iOS banner for Safari iPhone users
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+const dismissed = localStorage.getItem("pwa_dismissed");
+if(isIOS && !isStandalone && !dismissed){
+  setTimeout(() => {
+    document.getElementById("ios-banner").style.display = "block";
+  }, 4000);
+}
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc, serverTimestamp, getDocs, query, where, onSnapshot, doc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB5pXIFi1txKGJ6Xs9Rndfmu4enIuONGDk",
+  authDomain: "okadaride-a1ec9.firebaseapp.com",
+  projectId: "okadaride-a1ec9",
+  storageBucket: "okadaride-a1ec9.firebasestorage.app",
+  messagingSenderId: "152050146022",
+  appId: "1:152050146022:web:d3210fbd1a93c4e9813927",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Generate 6 digit code
+window.generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+// Send code via WhatsApp
+window.sendWhatsAppOTP = (phone, code) => {
+  const clean = phone.replace(/[^0-9]/g,"");
+  const gh = clean.startsWith("0") ? "233"+clean.slice(1) : clean.startsWith("233") ? clean : "233"+clean;
+  const msg = `🛺 *OkadaRide Ghana Verification*\n\nYour login code is:\n\n*${code}*\n\nThis code expires in 10 minutes.\nDo not share with anyone.\n\n_OkadaRide Ghana 🇬🇭_`;
+  const url = `https://wa.me/${gh}?text=${encodeURIComponent(msg)}`;
+  window.open(url, "_blank");
+};
+
+// Save passenger
+window.savePassenger = async (data) => {
+  try {
+    await addDoc(collection(db, "passengers"), { ...data, createdAt: serverTimestamp() });
+    return { success: true };
+  } catch(e) { return { success: false }; }
+};
+
+// Save booking
+window.saveBooking = async (data) => {
+  try {
+    const ref = await addDoc(collection(db, "bookings"), { ...data, status: "requested", createdAt: serverTimestamp() });
+    return { success: true, id: ref.id };
+  } catch(e) { return { success: false, error: e.message }; }
+};
+
+// Save driver application
+window.saveDriverApplication = async (data) => {
+  try {
+    const ref = await addDoc(collection(db, "driver_applications"), { ...data, status: "pending", submittedAt: serverTimestamp() });
+    return { success: true, id: ref.id };
+  } catch(e) { return { success: false, error: e.message }; }
+};
+
+// Fetch approved drivers from Firebase
+window.fetchApprovedDrivers = async (region) => {
+  try {
+    const q = query(collection(db, "driver_applications"), where("status", "==", "approved"));
+    const snap = await getDocs(q);
+    const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Filter by region if provided, else return all
+    const filtered = region ? all.filter(d => d.region === region || d.operatingZone?.toLowerCase().includes(region.toLowerCase())) : all;
+    return filtered.map((d, i) => ({
+      id: d.id,
+      name: d.fullName,
+      rating: (4.5 + Math.random() * 0.5).toFixed(1),
+      trips: Math.floor(50 + Math.random() * 300),
+      eta: `${2 + i * 2} min`,
+      plate: d.plate,
+      phone: d.phone,
+      avatar: ["🧑🏾","👨🏿","🧑🏽","👨🏾","🧑🏿"][i % 5],
+      verified: true,
+      color: d.tricycleColor,
+      region: d.region,
+      zone: d.operatingZone,
+    }));
+  } catch(e) { return []; }
+};
+
+// WhatsApp notify DRIVER directly
+window.notifyDriver = (booking, driver) => {
+  const clean = driver.phone.replace(/[^0-9]/g,"");
+  const gh = clean.startsWith("0") ? "233"+clean.slice(1) : clean.startsWith("233") ? clean : "233"+clean;
+  const msg = `🛺 *NEW OKADARIDE RIDE REQUEST!*\n\n`+
+    `👤 Passenger: ${booking.passengerName}\n`+
+    `📞 Passenger Phone: ${booking.passengerPhone}\n`+
+    `📍 Pickup: ${booking.pickup}\n`+
+    `🎯 Dropoff: ${booking.dropoff}\n`+
+    `🇬🇭 Region: ${booking.region}\n`+
+    `💰 Payment: ${booking.paymentMethod === "cash" ? "💵 Cash" : "📱 Mobile Money"}\n`+
+    `⏰ Time: ${new Date().toLocaleString()}\n\n`+
+    `Please open your OkadaRide Driver Portal to Accept or Decline:\n`+
+    `👉 https://frempah.github.io/OakdaRide2.gh/driver.html\n\n`+
+    `_OkadaRide Ghana 🇬🇭_`;
+  window.open(`https://wa.me/${gh}?text=${encodeURIComponent(msg)}`, "_blank");
+};
+
+// WhatsApp notify DISPATCHER (you) as backup copy
+window.notifyDispatcher = (booking, driver) => {
+  const msg = `🛺 *NEW OKADARIDE BOOKING — COPY*\n\n`+
+    `👤 Passenger: ${booking.passengerName}\n`+
+    `📞 Phone: ${booking.passengerPhone}\n`+
+    `📍 Pickup: ${booking.pickup}\n`+
+    `🎯 Dropoff: ${booking.dropoff}\n`+
+    `🇬🇭 Region: ${booking.region}\n`+
+    `🚗 Driver notified: ${driver.name} (${driver.plate})\n`+
+    `📞 Driver phone: ${driver.phone}\n`+
+    `💰 Payment: ${booking.paymentMethod === "cash" ? "💵 Cash" : "📱 Mobile Money"}\n`+
+    `⏰ Time: ${new Date().toLocaleString()}\n`+
+    `🔖 Ref: ${booking.id || "NEW"}`;
+  window.open(`https://wa.me/233542008513?text=${encodeURIComponent(msg)}`, "_blank");
+};
+
+// Listen to booking status in real time for passenger tracking
+window.listenBookingStatus = (bookingId, cb) => {
+  try {
+    return onSnapshot(doc(db, "bookings", bookingId), (snap) => {
+      if (snap.exists()) cb({ id: snap.id, ...snap.data() });
+    });
+  } catch(e) { return () => {}; }
+};
+
+// WhatsApp driver
+window.whatsappDriver = (phone, passengerName, pickup, dropoff) => {
+  const clean = phone.replace(/[^0-9]/g,"");
+  const gh = clean.startsWith("0") ? "233"+clean.slice(1) : clean;
+  const msg = `Hello! I am ${passengerName}. I just booked an OkadaRide from *${pickup}* to *${dropoff}*. Are you on your way?`;
+  window.open(`https://wa.me/${gh}?text=${encodeURIComponent(msg)}`, "_blank");
+};
+
+// Send chat message
+window.sendChatMessage = async (bookingId, sender, senderName, text) => {
+  try {
+    await addDoc(collection(db, "bookings", bookingId, "messages"), {
+      sender, senderName, text, createdAt: serverTimestamp()
+    });
+    return { success: true };
+  } catch(e) { return { success: false }; }
+};
+
+// Listen to chat messages
+window.listenChat = (bookingId, cb) => {
+  try {
+    const q = query(collection(db, "bookings", bookingId, "messages"), orderBy("createdAt", "asc"));
+    return onSnapshot(q, snap => {
+      cb(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  } catch(e) { return () => {}; }
+};
+
+window.firebaseReady = true;
+console.log("✅ OkadaRide v4 Firebase ready");
+</script>
+
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+const C={
+  primary:"#1B7A2F",primaryLight:"#27AE45",primaryDark:"#0D4A1A",
+  red:"#CC0000",gold:"#FFB300",
+  accentSoft:"rgba(27,122,47,.1)",bg:"#F2FAF3",
+  text:"#0D2E14",textMid:"#3D6645",textLight:"#85A88C",
+  success:"#00C853",danger:"#CC0000",border:"rgba(27,122,47,.15)",
+};
+
+const GHANA_REGIONS=["Greater Accra","Ashanti","Western","Central","Eastern","Northern","Upper East","Upper West","Volta","Brong-Ahafo","Bono","Bono East","Ahafo","Savannah","North East","Oti"];
+
+const POPULAR_SPOTS={
+  "Greater Accra":["Accra Mall","Kotoka Airport","University of Ghana","Tema Station","Makola Market","37 Military Hospital","Madina Market","Achimota","Kaneshie","Adabraka"],
+  "Ashanti":["Kumasi Central Market","KNUST","Kejetia Terminal","Manhyia Palace","Komfo Anokye Hospital","Bantama","Asokwa","Ahodwo","Suame","Oforikrom"],
+  "Western":["Takoradi Market","Sekondi","Effia-Nkwanta Hospital","Anomabo","Komenda","Elmina","Mankessim","Tarkwa","Prestea","Half Assini"],
+  "Central":["Cape Coast Market","UCC Campus","Elmina Castle","Mankessim","Assin Fosu","Swedru","Saltpond","Winneba","Apam","Kasoa"],
+  "Eastern":["Koforidua Market","Nkawkaw","Somanya","Aburi","Akosombo","Asamankese","Nsawam","Suhum","Begoro","Oda"],
+  "Bono":["Sunyani Market","Sunyani Polytechnic","UENR Campus","Regional Hospital","Bus Terminal","St. Ambrose College","Fiapre Junction","Catholic Cathedral","Sunyani SHS","Town Hall"],
+  "Northern":["Tamale Central","Tamale Teaching Hospital","UDS Campus","Yendi","Bimbila","Damongo","Salaga","Savelugu","Tolon","Kumbungu"],
+  "Volta":["Ho Market","Ho Teaching Hospital","UHAS","Keta","Hohoe","Aflao","Sogakope","Jasikan","Nkwanta","Dambai"],
+  "Brong-Ahafo":["Techiman Market","Berekum","Kintampo","Wenchi","Dormaa Ahenkro","Atebubu","Nkoranza","Yeji","Prang","Nsawkaw"],
+  "Upper East":["Bolgatanga Market","Navrongo","Zebilla","Bawku","Sandema","Bongo","Paga","Nangodi","Zuarungu","Chuchuliga"],
+  "Upper West":["Wa Market","Lawra","Nandom","Jirapa","Tumu","Funsi","Nadowli","Kaleo","Han","Wechiau"],
+  "Bono East":["Techiman","Atebubu","Kintampo","Nkoranza","Yeji","Prang","Buipe","Salaga","Bole","Sawla"],
+  "Ahafo":["Goaso","Bechem","Kukuom","Mim","Acherensua","Dadiesoaba","Hwidiem","Kenyasi","Tepa","Sankore"],
+  "Savannah":["Damongo","Buipe","Sawla","Tuna","Bole","Yapei","Mankarigu","Daboya","Murugu","Larabanga"],
+  "North East":["Nalerigu","Gambaga","Walewale","Chereponi","Bunkpurugu","Yunyoo","Nkpayili","Kpasayili","Langbinsi","Janga"],
+  "Oti":["Dambai","Nkwanta","Jasikan","Kadjebi","Kpassa","Buem","Worawora","Asato","Likpe","Guan"],
+};
+
+// Fallback demo drivers if no real drivers approved yet
+const DEMO_DRIVERS=[
+  {id:"demo1",name:"Kofi Agyeman",rating:"4.9",trips:412,eta:"2 min",plate:"GR-1234-22",phone:"0551234567",avatar:"🧑🏾",verified:true,color:"Green",region:"Greater Accra",zone:"Accra Central"},
+  {id:"demo2",name:"Yaw Boateng",rating:"4.8",trips:289,eta:"4 min",plate:"AS-5678-21",phone:"0247654321",avatar:"👨🏿",verified:true,color:"Green & Black",region:"Ashanti",zone:"Kumasi Central"},
+  {id:"demo3",name:"Kwabena Asare",rating:"4.7",trips:201,eta:"6 min",plate:"BA-9012-23",phone:"0542008513",avatar:"🧑🏽",verified:true,color:"Yellow",region:"Bono",zone:"Sunyani Central"},
+];
+
+// ── SVG ───────────────────────────────────────────────────────────────────────
+const TukTuk=({size=32,color="#fff"})=>(
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+    <rect x="10" y="18" width="38" height="22" rx="5" fill={color} opacity="0.95"/>
+    <rect x="14" y="10" width="28" height="10" rx="4" fill={color} opacity="0.8"/>
+    <rect x="16" y="12" width="24" height="7" rx="2" fill="rgba(0,0,0,0.25)"/>
+    <rect x="36" y="22" width="9" height="14" rx="2" fill="rgba(0,0,0,0.2)"/>
+    <rect x="10" y="30" width="10" height="10" rx="2" fill={color} opacity="0.7"/>
+    <circle cx="13" cy="36" r="2.5" fill="#FFE082"/>
+    <circle cx="42" cy="42" r="7" fill="#1a1a1a" stroke={color} strokeWidth="2"/>
+    <circle cx="42" cy="42" r="3" fill="#555"/>
+    <circle cx="16" cy="42" r="5" fill="#1a1a1a" stroke={color} strokeWidth="2"/>
+    <circle cx="16" cy="42" r="2" fill="#555"/>
+    <circle cx="42" cy="42" r="5.5" fill="none" stroke="#FFB300" strokeWidth="1" strokeDasharray="3,4"/>
+    <circle cx="16" cy="42" r="3.5" fill="none" stroke="#FFB300" strokeWidth="1" strokeDasharray="2,3"/>
+  </svg>
+);
+const RollingTukTuk=({size=52})=>(
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" style={{animation:"roll 1.8s ease-in-out infinite"}}>
+    <rect x="10" y="18" width="38" height="22" rx="5" fill="#27AE45" opacity="0.95"/>
+    <rect x="14" y="10" width="28" height="10" rx="4" fill="#27AE45" opacity="0.8"/>
+    <rect x="16" y="12" width="24" height="7" rx="2" fill="rgba(0,0,0,0.25)"/>
+    <rect x="36" y="22" width="9" height="14" rx="2" fill="rgba(0,0,0,0.2)"/>
+    <rect x="10" y="30" width="10" height="10" rx="2" fill="#27AE45" opacity="0.7"/>
+    <circle cx="13" cy="36" r="2.5" fill="#FFE082"/>
+    <circle cx="42" cy="42" r="7" fill="#1a1a1a" stroke="#27AE45" strokeWidth="2"/>
+    <circle cx="42" cy="42" r="3" fill="#555"/>
+    <circle cx="16" cy="42" r="5" fill="#1a1a1a" stroke="#27AE45" strokeWidth="2"/>
+    <circle cx="16" cy="42" r="2" fill="#555"/>
+    <circle cx="42" cy="42" r="5.5" fill="none" stroke="#FFB300" strokeWidth="1.5" strokeDasharray="3,4"/>
+    <circle cx="16" cy="42" r="3.5" fill="none" stroke="#FFB300" strokeWidth="1.5" strokeDasharray="2,3"/>
+  </svg>
+);
+
+// ── UI COMPONENTS ─────────────────────────────────────────────────────────────
+const TopStripe=()=>(
+  <div style={{position:"absolute",top:0,left:0,right:0,display:"flex",height:6,zIndex:2}}>
+    <div style={{flex:1,background:C.red}}/><div style={{flex:1,background:C.gold}}/><div style={{flex:1,background:"#006400"}}/>
+  </div>
+);
+const GhanaStripe=()=>(
+  <div style={{display:"flex",height:5,borderRadius:3,overflow:"hidden",marginBottom:16}}>
+    <div style={{flex:1,background:C.red}}/><div style={{flex:1,background:C.gold}}/><div style={{flex:1,background:C.primary}}/>
+  </div>
+);
+const Card=({children,style={},onClick})=>(
+  <div onClick={onClick} style={{background:"#fff",borderRadius:20,padding:18,boxShadow:"0 2px 16px rgba(27,122,47,.08)",border:`1px solid ${C.border}`,cursor:onClick?"pointer":"default",...style}}>{children}</div>
+);
+const Pill=({children,color,bg,style={}})=>(
+  <span style={{background:bg||C.accentSoft,color:color||C.primary,borderRadius:30,padding:"5px 14px",fontSize:12,fontWeight:700,display:"inline-block",...style}}>{children}</span>
+);
+const Av=({emoji,size=48,verified})=>(
+  <div style={{position:"relative",flexShrink:0}}>
+    <div style={{width:size,height:size,borderRadius:"50%",background:`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.45}}>{emoji}</div>
+    {verified&&<div style={{position:"absolute",bottom:-2,right:-2,width:18,height:18,borderRadius:"50%",background:C.success,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,border:"2px solid #fff"}}>✓</div>}
+  </div>
+);
+const Inp=({icon,label,error,...p})=>{
+  const [f,setF]=useState(false);
+  return(
+    <div style={{marginBottom:14}}>
+      {label&&<p style={{fontWeight:700,fontSize:13,color:C.textMid,marginBottom:6}}>{label}</p>}
+      <div style={{position:"relative"}}>
+        {icon&&<span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:17,zIndex:1}}>{icon}</span>}
+        <input style={{width:"100%",padding:icon?"13px 13px 13px 44px":"13px 14px",borderRadius:13,fontSize:15,border:`1.5px solid ${error?C.red:f?C.primary:C.border}`,background:f?"#fff":C.bg,color:C.text,transition:"all .2s"}}
+          onFocus={()=>setF(true)} onBlur={()=>setF(false)} {...p}/>
+      </div>
+      {error&&<p style={{color:C.red,fontSize:12,fontWeight:700,marginTop:4}}>⚠️ {error}</p>}
+    </div>
+  );
+};
+const Sel=({label,icon,children,...p})=>{
+  const [f,setF]=useState(false);
+  return(
+    <div style={{marginBottom:14}}>
+      {label&&<p style={{fontWeight:700,fontSize:13,color:C.textMid,marginBottom:6}}>{label}</p>}
+      <div style={{position:"relative"}}>
+        {icon&&<span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:17,zIndex:1}}>{icon}</span>}
+        <select style={{width:"100%",padding:icon?"13px 13px 13px 44px":"13px 14px",borderRadius:13,fontSize:15,border:`1.5px solid ${f?C.primary:C.border}`,background:f?"#fff":C.bg,color:C.text,transition:"all .2s",appearance:"none"}}
+          onFocus={()=>setF(true)} onBlur={()=>setF(false)} {...p}>{children}</select>
+        <span style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",color:C.textLight}}>▾</span>
+      </div>
+    </div>
+  );
+};
+const Btn=({children,onClick,disabled,danger,ghost,style={}})=>(
+  <button onClick={onClick} disabled={disabled} style={{
+    width:"100%",padding:"15px",borderRadius:16,
+    border:ghost?`1.5px solid ${C.border}`:"none",
+    background:disabled?"#CBD5E0":ghost?"transparent":danger?`linear-gradient(135deg,${C.red},#8B0000)`:`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`,
+    color:ghost?C.primary:"#fff",fontWeight:800,fontSize:16,
+    cursor:disabled?"not-allowed":"pointer",
+    boxShadow:(!disabled&&!ghost)?`0 4px 20px rgba(27,122,47,.3)`:"none",
+    transition:"all .2s",...style
+  }}>{children}</button>
+);
+const Spinner=()=>(
+  <div style={{width:22,height:22,border:"3px solid rgba(255,255,255,.3)",borderTop:"3px solid #fff",borderRadius:"50%",animation:"spin .8s linear infinite",margin:"0 auto"}}/>
+);
+const SOSModal=({onClose})=>{
+  const [sent,setSent]=useState(false);
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{background:"#fff",borderRadius:24,padding:28,width:"100%",maxWidth:340,textAlign:"center",animation:"slideUp .3s ease"}}>
+        {sent?(
+          <React.Fragment>
+            <div style={{fontSize:60,marginBottom:12}}>✅</div>
+            <h2 style={{fontFamily:"'Syne',sans-serif",color:C.text,marginBottom:8}}>Help is on the way</h2>
+            <div style={{background:"rgba(204,0,0,.06)",border:`1px solid rgba(204,0,0,.2)`,borderRadius:12,padding:"10px 14px",marginBottom:16}}>
+              <p style={{fontSize:13,color:C.red,fontWeight:700}}>🇬🇭 Ghana Emergency</p>
+              <p style={{fontSize:13,color:C.textMid,marginTop:4}}>Police: <strong>191</strong> · Ambulance: <strong>193</strong> · Fire: <strong>192</strong></p>
+            </div>
+            <Btn onClick={onClose}>Close</Btn>
+          </React.Fragment>
+        ):(
+          <React.Fragment>
+            <div style={{fontSize:60,marginBottom:12}}>🆘</div>
+            <h2 style={{fontFamily:"'Syne',sans-serif",color:C.red,marginBottom:8}}>Emergency SOS</h2>
+            <div style={{background:"rgba(204,0,0,.06)",border:`1px solid rgba(204,0,0,.2)`,borderRadius:12,padding:"10px 14px",marginBottom:16}}>
+              <p style={{fontSize:13,color:C.red,fontWeight:700}}>🇬🇭 Ghana Emergency</p>
+              <p style={{fontSize:13,color:C.textMid,marginTop:4}}>Police: <strong>191</strong> · Ambulance: <strong>193</strong> · Fire: <strong>192</strong></p>
+            </div>
+            <Btn danger onClick={()=>setSent(true)} style={{marginBottom:10}}>🚨 Send SOS Alert</Btn>
+            <Btn ghost onClick={onClose}>Cancel</Btn>
+          </React.Fragment>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── WHATSAPP LOGIN ────────────────────────────────────────────────────────────
+function WhatsAppLogin({onLogin}){
+  const [step,setStep]=useState("phone");
+  const [phone,setPhone]=useState("");
+  const [name,setName]=useState("");
+  const [code,setCode]=useState(["","","","","",""]);
+  const [generatedCode,setGeneratedCode]=useState("");
+  const [error,setError]=useState("");
+  const [timer,setTimer]=useState(0);
+  const refs=useRef([]);
+
+  useEffect(()=>{
+    if(timer>0){const t=setTimeout(()=>setTimer(r=>r-1),1000);return()=>clearTimeout(t);}
+  },[timer]);
+
+  // Check returning user
+  useEffect(()=>{
+    const saved=localStorage.getItem("okada_user");
+    if(saved){try{onLogin(JSON.parse(saved));}catch(e){}}
+  },[]);
+
+  const sendCode=()=>{
+    const clean=phone.replace(/[^0-9]/g,"");
+    if(clean.length<9){setError("Please enter a valid Ghana phone number");return;}
+    setError("");
+    const otp=window.generateOTP?.()|| Math.floor(100000+Math.random()*900000).toString();
+    setGeneratedCode(otp);
+    window.sendWhatsAppOTP?.(phone,otp);
+    setStep("otp");
+    setTimer(120);
+  };
+
+  const handleChange=(i,val)=>{
+    if(!/^[0-9]?$/.test(val))return;
+    const n=[...code];n[i]=val;setCode(n);
+    if(val&&i<5)refs.current[i+1]?.focus();
+  };
+  const handleKey=(i,e)=>{
+    if(e.key==="Backspace"&&!code[i]&&i>0)refs.current[i-1]?.focus();
+  };
+
+  const verify=()=>{
+    const entered=code.join("");
+    if(entered===generatedCode){
+      setStep("name");
+      setError("");
+    } else {
+      setError("Wrong code. Check your WhatsApp and try again.");
+      setCode(["","","","","",""]);
+      refs.current[0]?.focus();
+    }
+  };
+
+  const finish=()=>{
+    if(name.trim().length<2){setError("Please enter your name");return;}
+    const user={phone,name:name.trim(),verified:true};
+    localStorage.setItem("okada_user",JSON.stringify(user));
+    window.savePassenger?.({name:name.trim(),phone});
+    onLogin(user);
+  };
+
+  return(
+    <div style={{minHeight:"100vh",background:`linear-gradient(135deg,${C.primaryDark},#0a2a0a)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,position:"relative"}}>
+      <div style={{position:"fixed",top:0,left:0,right:0,display:"flex",height:6,zIndex:10}}>
+        <div style={{flex:1,background:C.red}}/><div style={{flex:1,background:C.gold}}/><div style={{flex:1,background:"#006400"}}/>
+      </div>
+      <div style={{maxWidth:380,width:"100%",animation:"slideUp .5s ease"}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{display:"inline-flex",width:72,height:72,background:`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`,borderRadius:20,alignItems:"center",justifyContent:"center",marginBottom:14,boxShadow:`0 8px 28px rgba(27,122,47,.4)`}}>
+            <TukTuk size={42} color="#fff"/>
+          </div>
+          <h1 style={{fontFamily:"'Syne',sans-serif",fontSize:26,fontWeight:800,color:"#fff",marginBottom:4}}>OkadaRide</h1>
+          <p style={{color:C.gold,fontSize:12,fontWeight:700}}>GHANA'S TRICYCLE RIDE APP 🇬🇭</p>
+        </div>
+
+        <div style={{background:"rgba(255,255,255,.06)",borderRadius:24,padding:28,border:"1px solid rgba(255,255,255,.1)"}}>
+
+          {/* STEP 1 — Phone */}
+          {step==="phone"&&(
+            <React.Fragment>
+              <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:20,fontWeight:800,color:"#fff",marginBottom:6}}>Welcome! 👋</h2>
+              <p style={{color:"rgba(255,255,255,.5)",fontSize:13,marginBottom:20,lineHeight:1.6}}>Enter your Ghana phone number. We'll send your verification code via <strong style={{color:"#25D366"}}>WhatsApp</strong>.</p>
+              <div style={{marginBottom:16}}>
+                <p style={{fontWeight:700,fontSize:13,color:"rgba(255,255,255,.6)",marginBottom:8}}>📞 Phone Number</p>
+                <div style={{display:"flex",gap:10}}>
+                  <div style={{background:"rgba(255,255,255,.1)",borderRadius:12,padding:"13px 14px",fontWeight:700,color:"#fff",fontSize:15,flexShrink:0,border:"1.5px solid rgba(255,255,255,.15)"}}>🇬🇭 +233</div>
+                  <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="0XX XXX XXXX" maxLength={10} style={{flex:1,padding:"13px 14px",borderRadius:12,fontSize:15,border:`1.5px solid ${error?"rgba(204,0,0,.6)":"rgba(255,255,255,.15)"}`,background:"rgba(255,255,255,.08)",color:"#fff",fontFamily:"'Nunito',sans-serif"}} onKeyDown={e=>e.key==="Enter"&&sendCode()}/>
+                </div>
+                {error&&<p style={{color:"#FF6B6B",fontSize:12,fontWeight:700,marginTop:6}}>⚠️ {error}</p>}
+              </div>
+              {/* WhatsApp note */}
+              <div style={{background:"rgba(37,211,102,.1)",border:"1px solid rgba(37,211,102,.25)",borderRadius:12,padding:"11px 14px",marginBottom:18,display:"flex",gap:10,alignItems:"center"}}>
+                <span style={{fontSize:22}}>💬</span>
+                <p style={{color:"rgba(255,255,255,.7)",fontSize:12,fontWeight:600,lineHeight:1.4}}>A 6-digit code will be sent to your WhatsApp. Make sure WhatsApp is installed on this phone.</p>
+              </div>
+              <button onClick={sendCode} style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:`linear-gradient(135deg,#25D366,#128C7E)`,color:"#fff",fontWeight:800,fontSize:16,cursor:"pointer",boxShadow:`0 4px 20px rgba(37,211,102,.4)`,fontFamily:"'Nunito',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+                💬 Send Code via WhatsApp
+              </button>
+              <p style={{textAlign:"center",color:"rgba(255,255,255,.25)",fontSize:11,marginTop:14}}>🔒 Your number is only used for booking verification</p>
+            </React.Fragment>
+          )}
+
+          {/* STEP 2 — OTP */}
+          {step==="otp"&&(
+            <React.Fragment>
+              <button onClick={()=>{setStep("phone");setCode(["","","","","",""]);setError("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.5)",fontWeight:700,fontSize:13,marginBottom:16,padding:0,display:"flex",alignItems:"center",gap:6}}>← Change number</button>
+              <div style={{textAlign:"center",marginBottom:20}}>
+                <div style={{fontSize:48,marginBottom:8,animation:"popIn .4s ease"}}>💬</div>
+                <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:20,fontWeight:800,color:"#fff",marginBottom:6}}>Check WhatsApp!</h2>
+                <p style={{color:"rgba(255,255,255,.5)",fontSize:13,lineHeight:1.6}}>We opened WhatsApp with your code. Copy the <strong style={{color:C.gold}}>6-digit code</strong> from the message and enter it below.</p>
+              </div>
+              {/* WhatsApp tip */}
+              <div style={{background:"rgba(37,211,102,.1)",border:"1px solid rgba(37,211,102,.25)",borderRadius:12,padding:"10px 14px",marginBottom:18,display:"flex",gap:8,alignItems:"flex-start"}}>
+                <span style={{fontSize:16,flexShrink:0}}>💡</span>
+                <p style={{color:"rgba(255,255,255,.6)",fontSize:12,fontWeight:600,lineHeight:1.4}}>If WhatsApp didn't open automatically, tap the button below to resend.</p>
+              </div>
+              <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:16}}>
+                {code.map((v,i)=>(
+                  <input key={i} ref={el=>refs.current[i]=el} value={v} onChange={e=>handleChange(i,e.target.value)} onKeyDown={e=>handleKey(i,e)} maxLength={1} style={{width:44,height:52,textAlign:"center",fontSize:22,fontWeight:800,borderRadius:12,border:`2px solid ${v?C.primary:"rgba(255,255,255,.2)"}`,background:v?"rgba(27,122,47,.2)":"rgba(255,255,255,.08)",color:"#fff",fontFamily:"'Nunito',sans-serif",outline:"none"}}/>
+                ))}
+              </div>
+              {error&&<p style={{color:"#FF6B6B",fontSize:13,fontWeight:700,textAlign:"center",marginBottom:12,animation:"shake .3s ease"}}>⚠️ {error}</p>}
+              <button onClick={verify} disabled={code.join("").length<6} style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:code.join("").length<6?"rgba(255,255,255,.1)":`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`,color:"#fff",fontWeight:800,fontSize:16,cursor:code.join("").length<6?"not-allowed":"pointer",fontFamily:"'Nunito',sans-serif",boxShadow:code.join("").length>=6?`0 4px 20px rgba(27,122,47,.4)`:"none",marginBottom:14}}>
+                Verify Code ✓
+              </button>
+              <div style={{textAlign:"center"}}>
+                {timer>0?(
+                  <p style={{color:"rgba(255,255,255,.35)",fontSize:13}}>Resend in <strong style={{color:C.gold}}>{timer}s</strong></p>
+                ):(
+                  <button onClick={()=>{const otp=window.generateOTP?.();setGeneratedCode(otp);window.sendWhatsAppOTP?.(phone,otp);setTimer(120);setCode(["","","","","",""]);setError("");}} style={{background:"none",border:"none",color:"#25D366",fontWeight:700,fontSize:13,cursor:"pointer"}}>💬 Resend via WhatsApp →</button>
+                )}
+              </div>
+            </React.Fragment>
+          )}
+
+          {/* STEP 3 — Name */}
+          {step==="name"&&(
+            <React.Fragment>
+              <div style={{textAlign:"center",marginBottom:20}}>
+                <div style={{fontSize:48,marginBottom:8}}>😊</div>
+                <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:20,fontWeight:800,color:"#fff",marginBottom:6}}>Almost there!</h2>
+                <p style={{color:"rgba(255,255,255,.5)",fontSize:13}}>What should your driver call you?</p>
+              </div>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Your full name..." style={{width:"100%",padding:"14px",borderRadius:12,fontSize:16,border:"1.5px solid rgba(255,255,255,.2)",background:"rgba(255,255,255,.08)",color:"#fff",fontFamily:"'Nunito',sans-serif",marginBottom:6,outline:"none"}} onKeyDown={e=>e.key==="Enter"&&finish()}/>
+              {error&&<p style={{color:"#FF6B6B",fontSize:12,fontWeight:700,marginBottom:10}}>⚠️ {error}</p>}
+              <div style={{height:10}}/>
+              <button onClick={finish} style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`,color:"#fff",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"'Nunito',sans-serif",boxShadow:`0 4px 20px rgba(27,122,47,.4)`}}>
+                Let's Ride! 🛺
+              </button>
+            </React.Fragment>
+          )}
+        </div>
+        <p style={{textAlign:"center",color:"rgba(255,255,255,.2)",fontSize:11,marginTop:18}}>🔒 Secured · OkadaRide Ghana 🇬🇭</p>
+      </div>
+    </div>
+  );
+}
+
+// ── FAKE MAP ──────────────────────────────────────────────────────────────────
+const FakeMap=({rider,animate})=>{
+  const [pos,setPos]=useState({x:70,y:105});
+  useEffect(()=>{
+    if(!animate)return;
+    const id=setInterval(()=>setPos(p=>({x:Math.max(20,Math.min(300,p.x+(Math.random()-.4)*9)),y:Math.max(20,Math.min(165,p.y+(Math.random()-.5)*7))})),900);
+    return()=>clearInterval(id);
+  },[animate]);
+  return(
+    <div style={{borderRadius:18,overflow:"hidden",height:190,position:"relative",background:"#d6f0da",border:`1px solid ${C.border}`}}>
+      <svg width="100%" height="100%" style={{position:"absolute",inset:0}}>
+        <rect x="0" y="75" width="100%" height="44" fill="rgba(255,255,255,.5)"/>
+        <rect x="145" y="0" width="44" height="100%" fill="rgba(255,255,255,.5)"/>
+        <line x1="0" y1="97" x2="100%" y2="97" stroke="rgba(150,210,160,.8)" strokeWidth="2" strokeDasharray="18,10"/>
+        <line x1="167" y1="0" x2="167" y2="100%" stroke="rgba(150,210,160,.8)" strokeWidth="2" strokeDasharray="18,10"/>
+        {[[10,10,55,58],[90,10,40,58],[230,10,100,58],[10,155,90,30],[240,158,110,28]].map(([x,y,w,h],i)=>(
+          <rect key={i} x={x} y={y} width={w} height={h} rx="8" fill={`rgba(27,122,47,${.07+i*.025})`}/>
+        ))}
+        <circle cx="285" cy="148" r="11" fill={C.red}/>
+        <text x="285" y="153" textAnchor="middle" fontSize="11" fill="white">🎯</text>
+      </svg>
+      <div style={{position:"absolute",transition:"left .85s ease, top .85s ease",left:pos.x,top:pos.y,transform:"translate(-50%,-50%)"}}>
+        <div style={{position:"relative"}}>
+          <div style={{position:"absolute",inset:-12,borderRadius:"50%",background:`rgba(27,122,47,.15)`,animation:animate?"ping 1.5s ease-out infinite":"none"}}/>
+          <TukTuk size={36} color={C.primaryLight}/>
+        </div>
+      </div>
+      <div style={{position:"absolute",bottom:10,left:10,right:10,background:"rgba(255,255,255,.93)",borderRadius:12,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:13,fontWeight:700,color:C.text}}>{rider?`${rider.name} is on the way`:"Searching nearby..."}</span>
+        {rider&&<Pill color={C.success} bg="rgba(0,200,83,.12)">{rider.eta} away</Pill>}
+      </div>
+    </div>
+  );
+};
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+const Nav=({tab,setTab})=>(
+  <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:"#fff",borderTop:`1px solid ${C.border}`,display:"flex",zIndex:50,boxShadow:"0 -4px 20px rgba(27,122,47,.1)"}}>
+    {[["home","Home"],["history","Trips"],["driver","Be a Rider"],["profile","Profile"]].map(([key,label])=>(
+      <button key={key} onClick={()=>setTab(key)} style={{flex:1,padding:"11px 0 9px",border:"none",background:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,color:tab===key?C.primary:C.textLight,fontWeight:tab===key?800:600,fontSize:10,borderTop:tab===key?`3px solid ${C.primary}`:"3px solid transparent",transition:"all .2s"}}>
+        {key==="home"&&<svg width="22" height="22" viewBox="0 0 24 24" fill={tab===key?C.primary:C.textLight}><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>}
+        {key==="history"&&<svg width="22" height="22" viewBox="0 0 24 24" fill={tab===key?C.primary:C.textLight}><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>}
+        {key==="driver"&&<div style={{width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center"}}><TukTuk size={22} color={tab===key?C.primary:C.textLight}/></div>}
+        {key==="profile"&&<svg width="22" height="22" viewBox="0 0 24 24" fill={tab===key?C.primary:C.textLight}><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>}
+        <span>{label}</span>
+      </button>
+    ))}
+  </div>
+);
+
+// ── HOME ──────────────────────────────────────────────────────────────────────
+// ── FARE CALCULATOR ───────────────────────────────────────────────────────────
+const BASE_FARE = 3.00;
+const RATE_PER_KM = 2.50;
+const MIN_FARE = 5.00;
+
+const DISTANCE_OPTIONS = [
+  { label: "Under 1 km", km: 0.5, example: "e.g. Nearby market" },
+  { label: "1 – 2 km", km: 1.5, example: "e.g. Short trip in town" },
+  { label: "2 – 4 km", km: 3, example: "e.g. Across town" },
+  { label: "4 – 7 km", km: 5.5, example: "e.g. To hospital / school" },
+  { label: "7 – 10 km", km: 8.5, example: "e.g. Outskirts of town" },
+  { label: "10 – 15 km", km: 12, example: "e.g. Nearby village" },
+  { label: "15 km+", km: 18, example: "e.g. Long distance" },
+];
+
+function calcFare(km, promo, isNight) {
+  let fare = BASE_FARE + (km * RATE_PER_KM);
+  if (fare < MIN_FARE) fare = MIN_FARE;
+  if (isNight) fare = fare * 1.2; // 20% night surcharge
+  if (promo === "OKADA001") fare = 0; // First ride free
+  return parseFloat(fare.toFixed(2));
+}
+
+function FareCalculator({ onFareSet, fare, distKm }) {
+  const [distIdx, setDistIdx] = useState(1);
+  const [promo, setPromo] = useState("");
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoError, setPromoError] = useState("");
+  const isNight = new Date().getHours() >= 20 || new Date().getHours() < 6;
+  const dist = DISTANCE_OPTIONS[distIdx];
+  const calculated = calcFare(dist.km, promoApplied ? promo : "", isNight);
+
+  useEffect(() => {
+    onFareSet(calculated, dist.km);
+  }, [distIdx, promoApplied]);
+
+  const applyPromo = () => {
+    if (promo.toUpperCase() === "OKADA001") {
+      setPromoApplied(true); setPromoError("");
+    } else {
+      setPromoError("Invalid promo code"); setPromoApplied(false);
+    }
+  };
+
+  return (
+    <Card style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <span style={{ fontSize: 22 }}>📏</span>
+        <p style={{ fontWeight: 800, fontSize: 15, color: C.text }}>How far are you going?</p>
+      </div>
+
+      {/* Distance slider */}
+      <div style={{ marginBottom: 16 }}>
+        <input type="range" min={0} max={DISTANCE_OPTIONS.length - 1} value={distIdx}
+          onChange={e => setDistIdx(Number(e.target.value))}
+          style={{ width: "100%", accentColor: C.primary, height: 6, cursor: "pointer" }}/>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+          <span style={{ fontSize: 11, color: C.textLight, fontWeight: 700 }}>Short</span>
+          <span style={{ fontSize: 11, color: C.textLight, fontWeight: 700 }}>Long</span>
+        </div>
+      </div>
+
+      {/* Selected distance */}
+      <div style={{ background: C.accentSoft, borderRadius: 14, padding: "12px 14px", marginBottom: 14, textAlign: "center" }}>
+        <p style={{ fontWeight: 800, fontSize: 18, color: C.primary }}>{dist.label}</p>
+        <p style={{ color: C.textMid, fontSize: 12, marginTop: 3 }}>{dist.example}</p>
+      </div>
+
+      {/* Night surcharge notice */}
+      {isNight && (
+        <div style={{ background: "rgba(255,179,0,.1)", border: "1px solid rgba(255,179,0,.3)", borderRadius: 12, padding: "8px 12px", marginBottom: 12, display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontSize: 16 }}>🌙</span>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#8B6000" }}>Night surcharge applied (+20%) — 8pm to 6am</p>
+        </div>
+      )}
+
+      {/* Promo code */}
+      <div style={{ marginBottom: 14 }}>
+        <p style={{ fontWeight: 700, fontSize: 13, color: C.textMid, marginBottom: 8 }}>🎟️ Promo Code</p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={promo} onChange={e => { setPromo(e.target.value.toUpperCase()); setPromoApplied(false); setPromoError(""); }}
+            placeholder="Enter code..." disabled={promoApplied}
+            style={{ flex: 1, padding: "11px 14px", borderRadius: 12, border: `1.5px solid ${promoApplied ? C.success : promoError ? C.red : C.border}`, fontSize: 14, fontFamily: "'Nunito',sans-serif", color: C.text, outline: "none", background: promoApplied ? "rgba(0,200,83,.06)" : "#fff" }}/>
+          {!promoApplied
+            ? <button onClick={applyPromo} style={{ padding: "11px 16px", borderRadius: 12, border: "none", background: C.primary, color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>Apply</button>
+            : <button onClick={() => { setPromoApplied(false); setPromo(""); }} style={{ padding: "11px 16px", borderRadius: 12, border: "none", background: "rgba(204,0,0,.1)", color: C.red, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>Remove</button>
+          }
+        </div>
+        {promoApplied && <p style={{ color: C.success, fontSize: 12, fontWeight: 700, marginTop: 6 }}>✅ First ride FREE! Promo applied</p>}
+        {promoError && <p style={{ color: C.red, fontSize: 12, fontWeight: 700, marginTop: 6 }}>⚠️ {promoError}</p>}
+      </div>
+
+      {/* Fare breakdown */}
+      <div style={{ background: `linear-gradient(135deg,${C.primaryDark},${C.primary})`, borderRadius: 16, padding: "16px", color: "#fff" }}>
+        <p style={{ fontWeight: 700, fontSize: 13, opacity: .7, marginBottom: 10 }}>FARE BREAKDOWN</p>
+        {[
+          ["Base fare", `GHS ${BASE_FARE.toFixed(2)}`],
+          [`Distance (${dist.km}km × GHS ${RATE_PER_KM})`, `GHS ${(dist.km * RATE_PER_KM).toFixed(2)}`],
+          ...(isNight ? [["Night surcharge (20%)", `+ GHS ${((BASE_FARE + dist.km * RATE_PER_KM) * 0.2).toFixed(2)}`]] : []),
+          ...(promoApplied ? [["Promo OKADA001", "− FREE 🎉"]] : []),
+        ].map(([l, v]) => (
+          <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ fontSize: 13, opacity: .8 }}>{l}</span>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>{v}</span>
+          </div>
+        ))}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,.2)", marginTop: 8, paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontWeight: 800, fontSize: 15 }}>Total Fare</span>
+          <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 28, color: C.gold }}>
+            {promoApplied ? "FREE 🎉" : `GHS ${calculated.toFixed(2)}`}
+          </span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function HomeScreen({user,goBook}){
+  const [pickup,setPickup]=useState("");
+  const [dropoff,setDropoff]=useState("");
+  const [region,setRegion]=useState("");
+  const [fare,setFare]=useState(calcFare(1.5,"",false));
+  const [distKm,setDistKm]=useState(1.5);
+  const [showFare,setShowFare]=useState(false);
+  const [sos,setSos]=useState(false);
+  const spots=region&&POPULAR_SPOTS[region]||[];
+  return(
+    <div style={{paddingBottom:80}}>
+      {sos&&<SOSModal onClose={()=>setSos(false)}/>}
+      <div style={{background:`linear-gradient(135deg,${C.primaryDark},${C.primary})`,padding:"52px 24px 24px",borderRadius:"0 0 28px 28px",position:"relative",overflow:"hidden"}}>
+        <TopStripe/>
+        <div style={{position:"absolute",top:-50,right:-50,width:180,height:180,borderRadius:"50%",background:"rgba(255,255,255,.05)"}}/>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+          <div style={{background:"rgba(255,255,255,.15)",borderRadius:14,padding:"8px 10px",display:"flex",alignItems:"center",justifyContent:"center"}}><TukTuk size={32} color="#fff"/></div>
+          <div style={{flex:1}}>
+            <p style={{color:"#fff",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:22,lineHeight:1}}>OkadaRide</p>
+            <p style={{color:C.gold,fontSize:11,fontWeight:700,letterSpacing:.8}}>GHANA'S TRICYCLE RIDE APP 🇬🇭</p>
+          </div>
+          <button onClick={()=>setSos(true)} style={{background:"rgba(204,0,0,.25)",border:"2px solid rgba(204,0,0,.5)",borderRadius:12,color:"#FF6B6B",fontWeight:800,fontSize:13,padding:"8px 14px"}}>🆘 SOS</button>
+        </div>
+        <div style={{background:"rgba(255,255,255,.1)",borderRadius:14,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:22}}>👋</span>
+          <div>
+            <p style={{color:"#fff",fontWeight:800,fontSize:14}}>Hello, {user.name}!</p>
+            <p style={{color:"rgba(255,255,255,.5)",fontSize:12}}>Ready to ride? Book your tricycle below.</p>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          {[["34","Riders Online"],["2min","Avg Wait"],["4.8★","Avg Rating"]].map(([v,l])=>(
+            <div key={l} style={{flex:1,background:"rgba(255,255,255,.11)",borderRadius:14,padding:"10px 8px",textAlign:"center"}}>
+              <p style={{color:C.gold,fontWeight:800,fontSize:15}}>{v}</p>
+              <p style={{color:"rgba(255,255,255,.5)",fontSize:10,fontWeight:600,marginTop:2}}>{l}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{padding:"20px 20px 0"}}>
+        <Card style={{marginBottom:20}}>
+          <GhanaStripe/>
+          <p style={{fontWeight:800,fontSize:15,color:C.text,marginBottom:14}}>Book a Tricycle Ride</p>
+          <Sel icon="🇬🇭" label="Select Your Region" value={region} onChange={e=>{setRegion(e.target.value);setPickup("");setDropoff("");}}>
+            <option value="">Choose a region...</option>
+            {GHANA_REGIONS.map(r=>(<option key={r} value={r}>{r} Region</option>))}
+          </Sel>
+          <Inp icon="📍" placeholder="Pick-up point..." value={pickup} onChange={e=>setPickup(e.target.value)} disabled={!region}/>
+          <Inp icon="🎯" placeholder="Drop-off point..." value={dropoff} onChange={e=>setDropoff(e.target.value)} disabled={!region}/>
+
+          {/* Show fare calculator when pickup and dropoff filled */}
+          {pickup&&dropoff&&region&&(
+            <React.Fragment>
+              <div onClick={()=>setShowFare(v=>!v)} style={{background:C.accentSoft,border:`1px solid rgba(27,122,47,.2)`,borderRadius:14,padding:"12px 14px",marginBottom:14,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <p style={{fontWeight:700,fontSize:13,color:C.textMid}}>Estimated Fare</p>
+                  <p style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:22,color:C.primary,marginTop:2}}>GHS {fare.toFixed(2)}</p>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <p style={{fontSize:11,color:C.textLight,fontWeight:700,marginBottom:4}}>GHS 2.50/km</p>
+                  <span style={{background:C.primary,color:"#fff",borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:700}}>{showFare?"Hide ▲":"Details ▼"}</span>
+                </div>
+              </div>
+              {showFare&&<FareCalculator onFareSet={(f,km)=>{setFare(f);setDistKm(km);}} fare={fare} distKm={distKm}/>}
+            </React.Fragment>
+          )}
+
+          <Btn disabled={!pickup||!dropoff||!region} onClick={()=>goBook(pickup,dropoff,region,fare,distKm)}>
+            <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10}}><TukTuk size={22} color="#fff"/> Find an OkadaRide — GHS {fare.toFixed(2)}</span>
+          </Btn>
+        </Card>
+        {region&&spots.length>0&&(
+          <React.Fragment>
+            <p style={{fontWeight:800,fontSize:15,color:C.text,marginBottom:12}}>Popular in {region}</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:20}}>
+              {spots.map(s=>(<span key={s} onClick={()=>{if(!pickup)setPickup(s);else setDropoff(s);}} style={{background:C.accentSoft,color:C.primary,border:`1px solid rgba(27,122,47,.2)`,borderRadius:30,padding:"7px 14px",fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{s}</span>))}
+            </div>
+          </React.Fragment>
+        )}
+        {!region&&(
+          <React.Fragment>
+            <p style={{fontWeight:800,fontSize:15,color:C.text,marginBottom:12}}>All 16 Regions</p>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+              {GHANA_REGIONS.map((r,i)=>(
+                <div key={r} onClick={()=>setRegion(r)} style={{background:i%3===0?"rgba(204,0,0,.06)":i%3===1?"rgba(255,179,0,.08)":"rgba(27,122,47,.07)",border:`1px solid ${C.border}`,borderRadius:14,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:16}}>📍</span>
+                  <p style={{fontWeight:700,fontSize:13,color:C.text}}>{r}</p>
+                </div>
+              ))}
+            </div>
+          </React.Fragment>
+        )}
+        <Card style={{background:`linear-gradient(135deg,${C.red},${C.primaryDark})`,border:"none",marginBottom:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <span style={{fontSize:38}}>🎉</span>
+            <div>
+              <p style={{color:"#fff",fontWeight:800,fontSize:15}}>First ride is FREE!</p>
+              <p style={{color:"rgba(255,255,255,.8)",fontSize:13,marginTop:3}}>Use code <strong style={{color:C.gold}}>OKADA001</strong></p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ── BOOKING ───────────────────────────────────────────────────────────────────
+function BookingScreen({user,pickup,dropoff,region,fare,distKm,onBack,onConfirm}){
+  const [sel,setSel]=useState(null);
+  const [pay,setPay]=useState("cash");
+  const [saving,setSaving]=useState(false);
+  const [drivers,setDrivers]=useState([]);
+  const [loadingDrivers,setLoadingDrivers]=useState(true);
+  const displayFare=fare||5.00;
+
+  useEffect(()=>{
+    const load=async()=>{
+      setLoadingDrivers(true);
+      const real=await window.fetchApprovedDrivers?.(region)??[];
+      if(real.length>0){setDrivers(real);}
+      else{setDrivers(DEMO_DRIVERS);}
+      setLoadingDrivers(false);
+    };
+    load();
+  },[region]);
+
+  const handleConfirm=async()=>{
+    setSaving(true);
+    const bookingData={passengerName:user.name,passengerPhone:user.phone,pickup,dropoff,region,driverName:sel.name,driverPlate:sel.plate,driverPhone:sel.phone,paymentMethod:pay,fare:displayFare,distanceKm:distKm||1.5};
+    let bookingId="";
+    if(window.saveBooking){const r=await window.saveBooking(bookingData);if(r.success)bookingId=r.id;}
+    window.notifyDriver?.({...bookingData,id:bookingId},sel);
+    setTimeout(()=>window.notifyDispatcher?.({...bookingData,id:bookingId},sel),1500);
+    setSaving(false);
+    onConfirm(sel,pay,bookingId,displayFare);
+  };
+
+  return(
+    <div style={{paddingBottom:80,animation:"slideUp .35s ease"}}>
+      <div style={{background:`linear-gradient(135deg,${C.primaryDark},${C.primary})`,padding:"52px 24px 24px",position:"relative"}}>
+        <TopStripe/>
+        <button onClick={onBack} style={{background:"rgba(255,255,255,.15)",color:"#fff",borderRadius:12,padding:"8px 14px",fontWeight:700,marginBottom:16,fontSize:14}}>← Back</button>
+        <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:24,fontWeight:800,color:"#fff"}}>Choose Your Rider</h2>
+        <p style={{color:C.gold,fontSize:13,marginTop:4,fontWeight:700}}>📍 {region} Region</p>
+        <p style={{color:"rgba(255,255,255,.6)",fontSize:13,marginTop:4}}>{pickup} → {dropoff}</p>
+      </div>
+      <div style={{padding:"20px 20px 0"}}>
+        <div style={{marginBottom:20}}><FakeMap rider={null} animate={false}/></div>
+        <div style={{background:"rgba(37,211,102,.08)",border:"1px solid rgba(37,211,102,.25)",borderRadius:14,padding:"12px 14px",marginBottom:16,display:"flex",gap:10,alignItems:"center"}}>
+          <span style={{fontSize:20}}>📱</span>
+          <div>
+            <p style={{fontSize:13,fontWeight:800,color:"#006B2E"}}>WhatsApp alerts sent automatically!</p>
+            <p style={{fontSize:12,color:"#3D6645",marginTop:3}}>Driver gets notified directly + dispatcher gets a copy 🇬🇭</p>
+          </div>
+        </div>
+        <p style={{fontWeight:800,fontSize:15,color:C.text,marginBottom:12}}>
+          {loadingDrivers?"Loading riders...":drivers.length===0?"No riders available right now":`${drivers.length} Rider${drivers.length>1?"s":""} Available`}
+        </p>
+        {loadingDrivers?(
+          <div style={{textAlign:"center",padding:30}}><div style={{width:36,height:36,border:`3px solid ${C.border}`,borderTop:`3px solid ${C.primary}`,borderRadius:"50%",animation:"spin .8s linear infinite",margin:"0 auto"}}/><p style={{color:C.textMid,marginTop:10,fontWeight:700}}>Finding riders near you...</p></div>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:20}}>
+            {drivers.map(d=>(
+              <div key={d.id} onClick={()=>setSel(d)} style={{background:sel?.id===d.id?C.accentSoft:"#fff",border:`2px solid ${sel?.id===d.id?C.primary:C.border}`,borderRadius:18,padding:16,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 12px rgba(27,122,47,.06)",transition:"all .2s"}}>
+                <Av emoji={d.avatar} verified={d.verified}/>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                    <p style={{fontWeight:800,fontSize:15,color:C.text}}>{d.name}</p>
+                    {d.verified&&<span style={{background:"rgba(0,200,83,.12)",color:C.success,fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:20}}>✓ VERIFIED</span>}
+                  </div>
+                  <p style={{color:C.textMid,fontSize:12,marginTop:3}}>⭐ {d.rating} · {d.trips} trips · {d.plate}</p>
+                  <p style={{color:C.textLight,fontSize:12,marginTop:1}}>🛺 {d.color} · {d.zone||d.region}</p>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <Pill color={C.success} bg="rgba(0,200,83,.1)">{d.eta}</Pill>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <p style={{fontWeight:800,fontSize:15,color:C.text,marginBottom:12}}>Payment</p>
+        <div style={{display:"flex",gap:12,marginBottom:20}}>
+          {[["cash","💵","Cash"],["momo","📱","MoMo"]].map(([k,icon,label])=>(
+            <div key={k} onClick={()=>setPay(k)} style={{flex:1,padding:"14px 10px",borderRadius:16,textAlign:"center",cursor:"pointer",border:`2px solid ${pay===k?C.primary:C.border}`,background:pay===k?C.accentSoft:"#fff",transition:"all .2s"}}>
+              <p style={{fontSize:28}}>{icon}</p>
+              <p style={{fontWeight:700,fontSize:14,color:C.text,marginTop:6}}>{label}</p>
+            </div>
+          ))}
+        </div>
+        {sel&&(
+          <Card style={{marginBottom:20,background:C.accentSoft,border:`1px solid rgba(27,122,47,.2)`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <p style={{fontSize:13,color:C.textMid,fontWeight:600}}>Estimated Fare</p>
+                <p style={{fontFamily:"'Syne',sans-serif",fontSize:26,fontWeight:800,color:C.primary,marginTop:2}}>
+                  {displayFare===0?"FREE 🎉":`GHS ${displayFare.toFixed(2)}`}
+                </p>
+                <p style={{fontSize:11,color:C.textLight,marginTop:3}}>{distKm||1.5}km · GHS 2.50/km</p>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <p style={{fontSize:13,color:C.textMid,fontWeight:600}}>Pay via</p>
+                <p style={{fontWeight:700,color:C.text,marginTop:2}}>{pay==="cash"?"💵 Cash":"📱 MoMo"}</p>
+              </div>
+            </div>
+          </Card>
+        )}
+        <Btn disabled={!sel||saving||loadingDrivers} onClick={handleConfirm}>
+          {saving?<Spinner/>:<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>Confirm & Notify Driver 📱</span>}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
+// ── FINDING ───────────────────────────────────────────────────────────────────
+function FindingScreen({driver,onFound}){
+  const [step,setStep]=useState(0);
+  useEffect(()=>{
+    const t1=setTimeout(()=>setStep(1),1400);
+    const t2=setTimeout(()=>setStep(2),2800);
+    const t3=setTimeout(()=>onFound(),4100);
+    return()=>[t1,t2,t3].forEach(clearTimeout);
+  },[]);
+  return(
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:32,background:C.bg}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{position:"relative",width:140,height:140,margin:"0 auto 32px",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{position:"absolute",inset:0,borderRadius:"50%",background:`rgba(27,122,47,.1)`,animation:"ping 1.3s ease-out infinite"}}/>
+          <div style={{position:"absolute",inset:15,borderRadius:"50%",background:`rgba(27,122,47,.16)`,animation:"ping 1.3s ease-out infinite .4s"}}/>
+          <div style={{position:"absolute",inset:28,borderRadius:"50%",background:`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <RollingTukTuk size={52}/>
+          </div>
+        </div>
+        <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:24,fontWeight:800,color:C.text,marginBottom:10}}>
+          {["Notifying dispatcher...","Connecting to rider...",`${driver?.name} is coming! 🎉`][step]}
+        </h2>
+        <p style={{color:C.textMid,fontSize:15}}>{step<2?"Dispatcher notified via WhatsApp 📱":`Arriving in ${driver?.eta}`}</p>
+        <div style={{display:"flex",justifyContent:"center",gap:8,marginTop:28}}>
+          {[0,1,2].map(i=>(<div key={i} style={{width:i===step?24:8,height:8,borderRadius:4,background:i<=step?C.primary:C.border,transition:"all .4s"}}/>))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── RIDE ──────────────────────────────────────────────────────────────────────
+function RideScreen({user,driver,pickup,dropoff,region,payMethod,fare,onEnd,onSOS}){
+  const [sec,setSec]=useState(0);
+  useEffect(()=>{const id=setInterval(()=>setSec(s=>s+1),1000);return()=>clearInterval(id);},[]);
+  const mm=String(Math.floor(sec/60)).padStart(2,"0"),ss=String(sec%60).padStart(2,"0");
+  return(
+    <div style={{paddingBottom:80,animation:"slideUp .35s ease"}}>
+      <div style={{background:`linear-gradient(135deg,${C.primaryDark},${C.primary})`,padding:"52px 24px 24px",position:"relative"}}>
+        <TopStripe/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <Pill color="#fff" bg="rgba(0,200,83,.25)" style={{marginBottom:8}}>● Ride in Progress</Pill>
+            <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:28,fontWeight:800,color:"#fff"}}>{mm}:{ss}</h2>
+            <p style={{color:"rgba(255,255,255,.55)",fontSize:13}}>Ride duration · {region}</p>
+          </div>
+          <button onClick={onSOS} style={{background:"rgba(204,0,0,.25)",border:`2px solid rgba(204,0,0,.6)`,borderRadius:14,padding:"10px 16px",color:"#FF6B6B",fontWeight:800,fontSize:14}}>🆘 SOS</button>
+        </div>
+      </div>
+      <div style={{padding:"20px 20px 0"}}>
+        <div style={{marginBottom:16}}><FakeMap rider={driver} animate={true}/></div>
+        <Card style={{marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16,paddingBottom:16,borderBottom:`1px solid ${C.border}`}}>
+            <Av emoji={driver.avatar} verified={driver.verified}/>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <p style={{fontWeight:800,fontSize:16,color:C.text}}>{driver.name}</p>
+                {driver.verified&&<span style={{background:"rgba(0,200,83,.12)",color:C.success,fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:20}}>✓ VERIFIED</span>}
+              </div>
+              <p style={{color:C.textMid,fontSize:13,marginTop:2}}>⭐ {driver.rating} · {driver.plate}</p>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+            <a href={`tel:${driver.phone}`} style={{textDecoration:"none"}}>
+              <div style={{background:`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`,borderRadius:14,padding:"12px",textAlign:"center",boxShadow:`0 4px 14px rgba(27,122,47,.3)`}}>
+                <p style={{fontSize:22}}>📞</p><p style={{color:"#fff",fontWeight:800,fontSize:13,marginTop:4}}>Call Driver</p>
+              </div>
+            </a>
+            <div onClick={()=>window.whatsappDriver?.(driver.phone,user.name,pickup,dropoff)} style={{background:`linear-gradient(135deg,#25D366,#128C7E)`,borderRadius:14,padding:"12px",textAlign:"center",cursor:"pointer",boxShadow:`0 4px 14px rgba(37,211,102,.3)`}}>
+              <p style={{fontSize:22}}>💬</p><p style={{color:"#fff",fontWeight:800,fontSize:13,marginTop:4}}>WhatsApp</p>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            {[["📍 From",pickup],["🎯 To",dropoff]].map(([l,v])=>(
+              <div key={l} style={{background:C.bg,borderRadius:12,padding:"12px 14px"}}>
+                <p style={{color:C.textLight,fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{l}</p>
+                <p style={{fontWeight:700,fontSize:14,color:C.text,marginTop:4}}>{v}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card style={{marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div><p style={{color:C.textLight,fontSize:12,fontWeight:700}}>PAYMENT</p><p style={{fontWeight:800,color:C.text,fontSize:16,marginTop:4}}>{payMethod==="cash"?"💵 Cash":"📱 Mobile Money"}</p></div>
+          <div style={{textAlign:"right"}}><p style={{color:C.textLight,fontSize:12,fontWeight:700}}>EST. FARE</p><p style={{fontFamily:"'Syne',sans-serif",fontWeight:800,color:C.primary,fontSize:22,marginTop:4}}>{fare===0?"FREE 🎉":`GHS ${(fare||5).toFixed(2)}`}</p></div>
+        </Card>
+        <Btn danger onClick={onEnd}>✅ End Ride</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ── PAYMENT ───────────────────────────────────────────────────────────────────
+function PaymentScreen({driver,payMethod,fare,distKm,onDone}){
+  const f=fare||5.00;
+  const baseFare=BASE_FARE.toFixed(2);
+  const distCharge=(distKm*RATE_PER_KM).toFixed(2);
+  const [rating,setRating]=useState(0);
+  const [hover,setHover]=useState(0);
+  const [done,setDone]=useState(false);
+  return(
+    <div style={{paddingBottom:80,animation:"slideUp .35s ease"}}>
+      <div style={{background:`linear-gradient(135deg,${C.primaryDark},${C.primary})`,padding:"52px 24px 28px",textAlign:"center",position:"relative"}}>
+        <TopStripe/>
+        <div style={{marginBottom:10,display:"flex",justifyContent:"center"}}><TukTuk size={56} color="#fff"/></div>
+        <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:28,fontWeight:800,color:"#fff"}}>Ride Complete! 🎉</h2>
+        <p style={{color:"rgba(255,255,255,.6)",marginTop:6}}>Thank you for riding with OkadaRide Ghana</p>
+      </div>
+      <div style={{padding:"20px 20px 0"}}>
+        <Card style={{marginBottom:16}}>
+          {[[`Base fare`,`GHS ${baseFare}`],[`Distance (${distKm||1.5}km)`,`GHS ${distCharge}`],[`Total`,f===0?"FREE 🎉":`GHS ${f.toFixed(2)}`]].map(([l,v],i)=>(
+            <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderBottom:i<3?`1px solid ${C.border}`:"none"}}>
+              <span style={{color:i===3?C.text:C.textMid,fontWeight:i===3?800:600,fontSize:i===3?17:14}}>{l}</span>
+              <span style={{color:i===3?C.primary:C.text,fontWeight:i===3?800:600,fontSize:i===3?17:14}}>{v}</span>
+            </div>
+          ))}
+        </Card>
+        <Card style={{marginBottom:16,background:C.accentSoft,border:`1px solid rgba(27,122,47,.2)`}}>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <span style={{fontSize:32}}>{payMethod==="cash"?"💵":"📱"}</span>
+            <div>
+              <p style={{color:C.textMid,fontSize:13,fontWeight:600}}>{payMethod==="cash"?`Pay ${f===0?"nothing — FREE ride!":` GHS ${f.toFixed(2)} cash`} to your rider`:"Pay via Mobile Money"}</p>
+              {payMethod==="momo"&&<p style={{color:C.primary,fontWeight:800,fontSize:15,marginTop:4}}>Dial *170# → Pay Bill → OkadaRide</p>}
+            </div>
+          </div>
+        </Card>
+        <Card style={{marginBottom:20,textAlign:"center"}}>
+          {done?<React.Fragment><div style={{fontSize:44,marginBottom:8}}>🙌</div><p style={{fontWeight:800,color:C.success,fontSize:16}}>Thanks for rating {driver.name}!</p></React.Fragment>:(
+            <React.Fragment>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+                <Av emoji={driver.avatar} size={44} verified={driver.verified}/>
+                <div style={{textAlign:"left"}}><p style={{fontWeight:800,color:C.text}}>Rate {driver.name}</p><p style={{color:C.textMid,fontSize:13}}>How was your ride?</p></div>
+              </div>
+              <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:16}}>
+                {[1,2,3,4,5].map(s=>(<button key={s} onClick={()=>setRating(s)} onMouseEnter={()=>setHover(s)} onMouseLeave={()=>setHover(0)} style={{fontSize:36,background:"none",border:"none",cursor:"pointer",filter:s<=(hover||rating)?"none":"grayscale(1) opacity(.3)",transform:s<=(hover||rating)?"scale(1.15)":"scale(1)",transition:"all .15s"}}>⭐</button>))}
+              </div>
+              <Btn disabled={!rating} onClick={()=>{setDone(true);setTimeout(onDone,1400);}}>Submit Rating</Btn>
+            </React.Fragment>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+function HistoryScreen({user}){
+  return(
+    <div style={{paddingBottom:80}}>
+      <div style={{background:`linear-gradient(135deg,${C.primaryDark},${C.primary})`,padding:"52px 24px 24px",position:"relative"}}>
+        <TopStripe/>
+        <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:26,fontWeight:800,color:"#fff"}}>My Trips</h2>
+        <p style={{color:"rgba(255,255,255,.6)",fontSize:14,marginTop:4}}>{user.name}'s ride history</p>
+      </div>
+      <div style={{padding:"20px 20px 0",display:"flex",flexDirection:"column",gap:14}}>
+        {[{from:"Accra Mall",to:"Kotoka Airport",date:"Today, 8:02 AM",fare:"GHS 12.00",driver:"Kofi A.",region:"Greater Accra"},{from:"KNUST",to:"Komfo Anokye",date:"Yesterday, 2:15 PM",fare:"GHS 8.00",driver:"Yaw B.",region:"Ashanti"},{from:"Sunyani Poly",to:"Regional Hospital",date:"Mon, 9:30 AM",fare:"GHS 5.00",driver:"Kwabena A.",region:"Bono"}].map((r,i)=>(
+          <Card key={i} style={{display:"flex",gap:14,alignItems:"center"}}>
+            <div style={{width:44,height:44,borderRadius:14,background:C.accentSoft,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><TukTuk size={28} color={C.primary}/></div>
+            <div style={{flex:1}}>
+              <p style={{fontWeight:800,fontSize:14,color:C.text}}>{r.from} → {r.to}</p>
+              <p style={{color:C.textMid,fontSize:12,marginTop:3}}>{r.date} · {r.driver}</p>
+              <Pill color={C.primary} bg={C.accentSoft} style={{marginTop:5,fontSize:11,padding:"3px 10px"}}>{r.region}</Pill>
+            </div>
+            <p style={{fontFamily:"'Syne',sans-serif",fontWeight:800,color:C.primary,fontSize:15,flexShrink:0}}>{r.fare}</p>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── DRIVER REG ────────────────────────────────────────────────────────────────
+function DriverScreen(){
+  const [step,setStep]=useState(1);
+  const [saving,setSaving]=useState(false);
+  const [form,setForm]=useState({fullName:"",phone:"",ghanaCard:"",dob:"",occupation:"rider",region:"",plate:"",tricycleColor:"",tricycleYear:"",zone:"",licenceNo:"",licenceExpiry:"",policeReport:"",emergencyName:"",emergencyPhone:"",agreeTerms:false,agreeBackground:false});
+  const set=k=>e=>setForm(f=>({...f,[k]:e.target.type==="checkbox"?e.target.checked:e.target.value}));
+  const s1=form.fullName&&form.phone&&form.ghanaCard&&form.dob&&form.region;
+  const s2=form.plate&&form.tricycleColor&&form.tricycleYear&&form.zone;
+  const s3=form.licenceNo&&form.licenceExpiry&&form.emergencyName&&form.emergencyPhone&&form.agreeTerms&&form.agreeBackground;
+  const handleSubmit=async()=>{
+    setSaving(true);
+    await window.saveDriverApplication?.({fullName:form.fullName,phone:form.phone,ghanaCard:form.ghanaCard,dateOfBirth:form.dob,occupation:form.occupation,region:form.region,plate:form.plate,tricycleColor:form.tricycleColor,tricycleYear:form.tricycleYear,operatingZone:form.zone,licenceNumber:form.licenceNo,licenceExpiry:form.licenceExpiry,policeReport:form.policeReport||"Not provided yet",emergencyContactName:form.emergencyName,emergencyContactPhone:form.emergencyPhone});
+    setSaving(false);setStep(4);
+  };
+  if(step===4) return(
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:32,background:C.bg,textAlign:"center",paddingBottom:100}}>
+      <GhanaStripe/>
+      <div style={{marginBottom:16,display:"flex",justifyContent:"center"}}><TukTuk size={80} color={C.primary}/></div>
+      <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:26,fontWeight:800,color:C.text,marginBottom:12}}>Application Submitted! 🇬🇭</h2>
+      <p style={{color:C.textMid,fontSize:15,lineHeight:1.75,marginBottom:24}}>Welcome, <strong>{form.fullName}</strong>!<br/>We'll contact you on <strong>{form.phone}</strong> within 24–48 hours.</p>
+      <div style={{background:"rgba(0,200,83,.08)",border:`1px solid rgba(0,200,83,.25)`,borderRadius:16,padding:"14px 20px",textAlign:"left",width:"100%"}}>
+        <p style={{fontWeight:800,color:C.text,marginBottom:10}}>What happens next:</p>
+        {["Document review","Background check","Confirmation call","Account activated — start earning! 💰"].map((s,i)=>(
+          <div key={i} style={{display:"flex",gap:10,marginBottom:8}}><span style={{color:C.primary,fontWeight:800,minWidth:22}}>{i+1}.</span><span style={{color:C.textMid,fontSize:14}}>{s}</span></div>
+        ))}
+      </div>
+    </div>
+  );
+  return(
+    <div style={{paddingBottom:90}}>
+      <div style={{background:`linear-gradient(135deg,${C.primaryDark},${C.primary})`,padding:"52px 24px 24px",position:"relative"}}>
+        <TopStripe/>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+          <TukTuk size={36} color="#fff"/>
+          <div><h2 style={{fontFamily:"'Syne',sans-serif",fontSize:20,fontWeight:800,color:"#fff"}}>Become a Driver</h2><p style={{color:C.gold,fontSize:12,fontWeight:700}}>All 16 regions 🇬🇭</p></div>
+        </div>
+        <div style={{marginTop:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+            {["Personal","Tricycle","Licence"].map((s,i)=>(
+              <div key={s} style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1}}>
+                <div style={{width:28,height:28,borderRadius:"50%",background:step>i+1?"#fff":step===i+1?"rgba(255,255,255,.9)":"rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12,color:step>i+1?C.primary:step===i+1?C.primaryDark:"rgba(255,255,255,.5)",marginBottom:4}}>{step>i+1?"✓":i+1}</div>
+                <p style={{fontSize:9,color:step===i+1?"#fff":"rgba(255,255,255,.4)",fontWeight:700}}>{s}</p>
+              </div>
+            ))}
+          </div>
+          <div style={{height:4,background:"rgba(255,255,255,.2)",borderRadius:4}}><div style={{height:"100%",borderRadius:4,background:"#fff",width:`${((step-1)/2)*100}%`,transition:"width .4s"}}/></div>
+        </div>
+      </div>
+      <div style={{padding:"20px 20px 0"}}>
+        {step===1&&(<Card style={{marginBottom:16}}><GhanaStripe/><p style={{fontWeight:800,fontSize:16,color:C.text,marginBottom:16}}>Step 1: Personal Information</p><Inp label="Full Name" icon="👤" placeholder="e.g. Kofi Mensah" value={form.fullName} onChange={set("fullName")}/><Inp label="Phone Number" icon="📞" placeholder="e.g. 055-123-4567" value={form.phone} onChange={set("phone")}/><Inp label="Ghana Card Number" icon="🪪" placeholder="e.g. GHA-123456789-0" value={form.ghanaCard} onChange={set("ghanaCard")}/><Inp label="Date of Birth" icon="🎂" type="date" value={form.dob} onChange={set("dob")}/><Sel label="Your Region" icon="🇬🇭" value={form.region} onChange={set("region")}><option value="">Select your region...</option>{GHANA_REGIONS.map(r=>(<option key={r} value={r}>{r} Region</option>))}</Sel><Sel label="Occupation" icon="💼" value={form.occupation} onChange={set("occupation")}><option value="rider">Full-time Rider</option><option value="student">Student (part-time)</option><option value="worker">Government / Private Worker</option><option value="other">Other</option></Sel><Btn disabled={!s1} onClick={()=>setStep(2)}>Continue →</Btn></Card>)}
+        {step===2&&(<Card style={{marginBottom:16}}><GhanaStripe/><p style={{fontWeight:800,fontSize:16,color:C.text,marginBottom:16}}>Step 2: Tricycle Details</p><Inp label="Plate Number" icon="🛺" placeholder="e.g. M-24-BR-1535" value={form.plate} onChange={set("plate")}/><Inp label="Tricycle Colour" icon="🎨" placeholder="e.g. Green & Black" value={form.tricycleColor} onChange={set("tricycleColor")}/><Sel label="Year of Manufacture" icon="📅" value={form.tricycleYear} onChange={set("tricycleYear")}><option value="">Select year...</option>{Array.from({length:15},(_,i)=>2025-i).map(y=>(<option key={y} value={y}>{y}</option>))}</Sel><Inp label="Main Operating Area" icon="📍" placeholder="e.g. Kumasi Central" value={form.zone} onChange={set("zone")}/><div style={{display:"flex",gap:10}}><Btn ghost onClick={()=>setStep(1)} style={{flex:1}}>← Back</Btn><Btn disabled={!s2} onClick={()=>setStep(3)} style={{flex:2}}>Continue →</Btn></div></Card>)}
+        {step===3&&(<Card style={{marginBottom:16}}><GhanaStripe/><p style={{fontWeight:800,fontSize:16,color:C.text,marginBottom:16}}>Step 3: Licence & Safety</p><Inp label="Licence Number" icon="🔢" placeholder="e.g. DL-12345678" value={form.licenceNo} onChange={set("licenceNo")}/><Inp label="Licence Expiry Date" icon="📅" type="date" value={form.licenceExpiry} onChange={set("licenceExpiry")}/><Inp label="Police Report Reference (optional)" icon="🚔" placeholder="e.g. GPS/2024/001" value={form.policeReport} onChange={set("policeReport")}/><Inp label="Emergency Contact Name" icon="👤" placeholder="e.g. Ama Mensah" value={form.emergencyName} onChange={set("emergencyName")}/><Inp label="Emergency Contact Phone" icon="📞" placeholder="e.g. 024-987-6543" value={form.emergencyPhone} onChange={set("emergencyPhone")}/><div style={{marginBottom:18}}>{[["agreeTerms","I agree to OkadaRide's Terms of Service"],["agreeBackground","I consent to a background check"]].map(([k,label])=>(
+          <label key={k} style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:12,cursor:"pointer"}}><input type="checkbox" checked={form[k]} onChange={set(k)} style={{width:20,height:20,marginTop:1,accentColor:C.primary,flexShrink:0}}/><span style={{fontSize:13,color:C.textMid,lineHeight:1.5,fontWeight:600}}>{label}</span></label>
+        ))}</div><div style={{display:"flex",gap:10}}><Btn ghost onClick={()=>setStep(2)} style={{flex:1}}>← Back</Btn><Btn disabled={!s3||saving} onClick={handleSubmit} style={{flex:2}}>{saving?<Spinner/>:"Submit 🚀"}</Btn></div></Card>)}
+      </div>
+    </div>
+  );
+}
+
+// ── PROFILE ───────────────────────────────────────────────────────────────────
+function ProfileScreen({user,onSignOut}){
+  return(
+    <div style={{paddingBottom:80}}>
+      <div style={{background:`linear-gradient(135deg,${C.primaryDark},${C.primary})`,padding:"52px 24px 32px",textAlign:"center",position:"relative"}}>
+        <TopStripe/>
+        <div style={{width:80,height:80,borderRadius:"50%",background:"rgba(255,255,255,.18)",margin:"0 auto 14px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:40}}>🧑🏾</div>
+        <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:22,fontWeight:800,color:"#fff"}}>{user.name}</h2>
+        <p style={{color:"rgba(255,255,255,.6)",fontSize:14,marginTop:4}}>{user.phone} 🇬🇭</p>
+        <Pill color="#fff" bg="rgba(255,255,255,.15)" style={{marginTop:12}}>🛺 OkadaRide Passenger</Pill>
+      </div>
+      <div style={{padding:"20px 20px 0"}}>
+        <Card style={{marginBottom:16}}>
+          {[["Total Rides","3"],["Regions Visited","2"],["Member Since","March 2026"]].map(([l,v],i)=>(
+            <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"12px 0",borderBottom:i<2?`1px solid ${C.border}`:"none"}}>
+              <span style={{color:C.textMid,fontWeight:600,fontSize:14}}>{l}</span>
+              <span style={{color:C.text,fontWeight:800,fontSize:14}}>{v}</span>
+            </div>
+          ))}
+        </Card>
+        {[["🔔","Notifications"],["🆘","Emergency Contacts"],["🇬🇭","My Region"],["⭐","Rate OkadaRide"],["ℹ️","About OkadaRide Ghana"]].map(([icon,label])=>(
+          <Card key={label} style={{marginBottom:12,display:"flex",alignItems:"center",gap:14,padding:"16px 18px",cursor:"pointer"}}>
+            <span style={{fontSize:22}}>{icon}</span>
+            <span style={{fontWeight:700,color:C.text,fontSize:15,flex:1}}>{label}</span>
+            <span style={{color:C.textLight}}>›</span>
+          </Card>
+        ))}
+        <Btn danger onClick={onSignOut} style={{marginTop:8}}>Sign Out</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ── CHAT BOX (PASSENGER SIDE) ─────────────────────────────────────────────────
+const PASSENGER_QUICK=["I am waiting outside 👋","On my way to pickup 🚶","Please wait 2 minutes ⏳","I can see you! 👀","Where are you? 📍","I am at the gate 🚪","Almost there! 🏃","Thank you driver! 🙏"];
+
+function PassengerChatBox({bookingId,user,driverName}){
+  const [messages,setMessages]=useState([]);
+  const [text,setText]=useState("");
+  const [sending,setSending]=useState(false);
+  const bottomRef=useRef(null);
+  const myId=`passenger_${user.phone}`;
+
+  useEffect(()=>{
+    if(!bookingId||!window.listenChat)return;
+    const unsub=window.listenChat(bookingId,setMessages);
+    return()=>unsub?.();
+  },[bookingId]);
+
+  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
+
+  const send=async(msg)=>{
+    if(!msg.trim())return;
+    setSending(true);
+    await window.sendChatMessage?.(bookingId,myId,user.name,msg.trim());
+    setText("");setSending(false);
+  };
+
+  return(
+    <div style={{background:"#fff",borderRadius:18,overflow:"hidden",border:`1px solid ${C.border}`,marginBottom:16}}>
+      <div style={{background:`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`,padding:"11px 16px",display:"flex",alignItems:"center",gap:8}}>
+        <span style={{fontSize:16}}>💬</span>
+        <p style={{color:"#fff",fontWeight:800,fontSize:14}}>Chat with {driverName}</p>
+        <div style={{marginLeft:"auto",width:8,height:8,borderRadius:"50%",background:C.gold,animation:"ping 1.5s ease-out infinite"}}/>
+      </div>
+      <div style={{maxHeight:200,overflowY:"auto",padding:"12px 12px 8px",display:"flex",flexDirection:"column",gap:8}}>
+        {messages.length===0&&(
+          <div style={{textAlign:"center",padding:"12px 0"}}>
+            <p style={{fontSize:26,marginBottom:6}}>💬</p>
+            <p style={{color:C.textLight,fontSize:13,fontWeight:600}}>Chat with your driver here!</p>
+          </div>
+        )}
+        {messages.map(m=>{
+          const isMine=m.sender===myId;
+          const ts=m.createdAt?.seconds?new Date(m.createdAt.seconds*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
+          return(
+            <div key={m.id} style={{display:"flex",flexDirection:"column",alignItems:isMine?"flex-end":"flex-start"}}>
+              <div style={{background:isMine?`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`:"#f5f5f5",color:isMine?"#fff":C.text,borderRadius:isMine?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"9px 13px",maxWidth:"80%"}}>
+                <p style={{fontSize:14,fontWeight:600,lineHeight:1.4}}>{m.text}</p>
+              </div>
+              <p style={{fontSize:10,color:C.textLight,marginTop:3,fontWeight:600}}>{isMine?"You":m.senderName}{ts&&` · ${ts}`}</p>
+            </div>
+          );
+        })}
+        <div ref={bottomRef}/>
+      </div>
+      <div style={{padding:"6px 10px",display:"flex",gap:6,overflowX:"auto",borderTop:`1px solid ${C.border}`}}>
+        {PASSENGER_QUICK.map(q=>(<button key={q} onClick={()=>send(q)} style={{background:C.accentSoft,color:C.primary,border:`1px solid rgba(27,122,47,.2)`,borderRadius:20,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{q}</button>))}
+      </div>
+      <div style={{display:"flex",gap:8,padding:"8px 10px",borderTop:`1px solid ${C.border}`}}>
+        <input value={text} onChange={e=>setText(e.target.value)} placeholder="Type a message..." onKeyDown={e=>e.key==="Enter"&&send(text)} style={{flex:1,padding:"10px 14px",borderRadius:20,border:`1.5px solid ${C.border}`,fontSize:14,fontFamily:"'Nunito',sans-serif",color:C.text,outline:"none"}}/>
+        <button onClick={()=>send(text)} disabled={!text.trim()||sending} style={{width:42,height:42,borderRadius:"50%",border:"none",background:text.trim()?`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`:C.border,display:"flex",alignItems:"center",justifyContent:"center",cursor:text.trim()?"pointer":"not-allowed",flexShrink:0}}>
+          <span style={{fontSize:18}}>➤</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── LIVE TRACKING SCREEN ──────────────────────────────────────────────────────
+function TrackingScreen({user,bookingId,driver,pickup,dropoff,region,payMethod,onDriverAccepted,onCancel}){
+  const [status,setStatus]=useState("requested");
+  const [driverInfo,setDriverInfo]=useState(driver);
+
+  useEffect(()=>{
+    if(!bookingId||!window.listenBookingStatus)return;
+    const unsub=window.listenBookingStatus(bookingId,(booking)=>{
+      setStatus(booking.status);
+      if(booking.status==="accepted"){
+        // Send WhatsApp to passenger confirming driver is on the way
+        const clean=user.phone.replace(/[^0-9]/g,"");
+        const gh=clean.startsWith("0")?"233"+clean.slice(1):clean.startsWith("233")?clean:"233"+clean;
+        const msg=`✅ *OkadaRide Booking Confirmed!*\n\n`+
+          `Your driver *${driver.name}* has accepted your ride!\n\n`+
+          `🛺 Plate: ${driver.plate}\n`+
+          `📍 Pickup: ${pickup}\n`+
+          `🎯 Dropoff: ${dropoff}\n`+
+          `⏱️ ETA: ${driver.eta}\n\n`+
+          `Your driver is on the way. Please be ready! 🇬🇭`;
+        window.open(`https://wa.me/${gh}?text=${encodeURIComponent(msg)}`,"_blank");
+        setTimeout(()=>onDriverAccepted(),2000);
+      }
+    });
+    return()=>unsub?.();
+  },[bookingId]);
+
+  const steps=[
+    {key:"requested",icon:"📤",label:"Booking Sent",desc:"Your request has been sent to the driver",done:true},
+    {key:"accepted",icon:"✅",label:"Driver Accepted",desc:`${driver.name} is on the way!`,done:status==="accepted"||status==="completed"},
+    {key:"arriving",icon:"🛺",label:"Driver Arriving",desc:`Arriving in ${driver.eta}`,done:status==="completed"},
+  ];
+
+  return(
+    <div style={{minHeight:"100vh",background:C.bg,animation:"slideUp .35s ease"}}>
+      <div style={{background:`linear-gradient(135deg,${C.primaryDark},${C.primary})`,padding:"52px 24px 28px",position:"relative",textAlign:"center"}}>
+        <TopStripe/>
+        <div style={{marginBottom:12,display:"flex",justifyContent:"center"}}>
+          <div style={{position:"relative",width:80,height:80,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <div style={{position:"absolute",inset:0,borderRadius:"50%",background:"rgba(255,255,255,.1)",animation:status==="requested"?"ping 1.5s ease-out infinite":"none"}}/>
+            <div style={{position:"absolute",inset:10,borderRadius:"50%",background:"rgba(255,255,255,.15)",animation:status==="requested"?"ping 1.5s ease-out infinite .5s":"none"}}/>
+            <TukTuk size={44} color="#fff"/>
+          </div>
+        </div>
+        <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:22,fontWeight:800,color:"#fff",marginBottom:6}}>
+          {status==="requested"?"Waiting for driver...":status==="accepted"?"Driver accepted! 🎉":"Ride in progress"}
+        </h2>
+        <p style={{color:"rgba(255,255,255,.6)",fontSize:13}}>
+          {status==="requested"?"Your WhatsApp notification has been sent":"You'll receive a WhatsApp confirmation shortly"}
+        </p>
+      </div>
+
+      <div style={{padding:"20px 20px 0"}}>
+        {/* Live status steps */}
+        <div style={{background:"#fff",borderRadius:20,padding:20,marginBottom:16,border:`1px solid ${C.border}`}}>
+          <p style={{fontWeight:800,fontSize:15,color:C.text,marginBottom:16}}>📍 Ride Status</p>
+          {steps.map((s,i)=>(
+            <div key={s.key} style={{display:"flex",gap:14,alignItems:"flex-start",marginBottom:i<steps.length-1?16:0}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:s.done?`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`:"rgba(0,0,0,.06)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,transition:"all .5s"}}>
+                  {s.done?<span style={{fontSize:16}}>✓</span>:<span style={{opacity:.4}}>{s.icon}</span>}
+                </div>
+                {i<steps.length-1&&<div style={{width:2,height:20,background:s.done?C.primary:"rgba(0,0,0,.1)",marginTop:4,transition:"all .5s"}}/>}
+              </div>
+              <div style={{paddingTop:8}}>
+                <p style={{fontWeight:800,fontSize:14,color:s.done?C.text:"rgba(0,0,0,.3)"}}>{s.label}</p>
+                <p style={{color:s.done?C.textMid:"rgba(0,0,0,.2)",fontSize:12,marginTop:3}}>{s.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Driver details */}
+        <div style={{background:"#fff",borderRadius:20,padding:16,marginBottom:16,border:`1px solid ${C.border}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14,paddingBottom:14,borderBottom:`1px solid ${C.border}`}}>
+            <Av emoji={driver.avatar} verified={driver.verified}/>
+            <div style={{flex:1}}>
+              <p style={{fontWeight:800,fontSize:15,color:C.text}}>{driver.name}</p>
+              <p style={{color:C.textMid,fontSize:13,marginTop:2}}>⭐ {driver.rating} · 🛺 {driver.plate}</p>
+              <p style={{color:C.textLight,fontSize:12,marginTop:1}}>🎨 {driver.color} · {driver.zone||driver.region}</p>
+            </div>
+            <Pill color={C.success} bg="rgba(0,200,83,.1)">{driver.eta}</Pill>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {[["📍 From",pickup],["🎯 To",dropoff]].map(([l,v])=>(
+              <div key={l} style={{background:C.bg,borderRadius:12,padding:"10px 12px"}}>
+                <p style={{color:C.textLight,fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{l}</p>
+                <p style={{fontWeight:700,fontSize:13,color:C.text,marginTop:3}}>{v}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* WhatsApp info */}
+        <div style={{background:"rgba(37,211,102,.08)",border:"1px solid rgba(37,211,102,.25)",borderRadius:16,padding:"14px 16px",marginBottom:16,display:"flex",gap:10,alignItems:"flex-start"}}>
+          <span style={{fontSize:22,flexShrink:0}}>💬</span>
+          <div>
+            <p style={{fontWeight:800,color:"#006B2E",fontSize:13}}>WhatsApp notification sent!</p>
+            <p style={{color:C.textMid,fontSize:12,marginTop:3,lineHeight:1.5}}>The driver has been notified on WhatsApp. You will also receive a WhatsApp message as soon as the driver accepts your ride.</p>
+          </div>
+        </div>
+
+        {/* Contact driver */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+          <a href={`tel:${driver.phone}`} style={{textDecoration:"none"}}>
+            <div style={{background:`linear-gradient(135deg,${C.primaryLight},${C.primaryDark})`,borderRadius:14,padding:"13px",textAlign:"center",boxShadow:`0 4px 14px rgba(27,122,47,.3)`}}>
+              <p style={{fontSize:22}}>📞</p><p style={{color:"#fff",fontWeight:800,fontSize:13,marginTop:4}}>Call Driver</p>
+            </div>
+          </a>
+          <div onClick={()=>{const c=driver.phone.replace(/[^0-9]/g,"");const g=c.startsWith("0")?"233"+c.slice(1):c;const m=`Hello, I just booked an OkadaRide. I am ${user.name} waiting at ${pickup}.`;window.open(`https://wa.me/${g}?text=${encodeURIComponent(m)}`,"_blank");}} style={{background:`linear-gradient(135deg,#25D366,#128C7E)`,borderRadius:14,padding:"13px",textAlign:"center",cursor:"pointer",boxShadow:`0 4px 14px rgba(37,211,102,.3)`}}>
+            <p style={{fontSize:22}}>💬</p><p style={{color:"#fff",fontWeight:800,fontSize:13,marginTop:4}}>WhatsApp</p>
+          </div>
+        </div>
+
+        {/* In-app chat — only shown after driver accepts */}
+        {status==="accepted"&&(
+          <PassengerChatBox bookingId={bookingId} user={user} driverName={driver.name}/>
+        )}
+
+        <Btn ghost onClick={onCancel} style={{color:C.red,borderColor:"rgba(204,0,0,.2)",marginBottom:20}}>Cancel Booking</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+function App(){
+  const [user,setUser]=useState(null);
+  const [tab,setTab]=useState("home");
+  const [flow,setFlow]=useState("home");
+  const [pickup,setPickup]=useState("");
+  const [dropoff,setDropoff]=useState("");
+  const [region,setRegion]=useState("");
+  const [driver,setDriver]=useState(null);
+  const [pay,setPay]=useState("cash");
+  const [bookingId,setBookingId]=useState("");
+  const [fare,setFare]=useState(5.00);
+  const [distKm,setDistKm]=useState(1.5);
+  const [sos,setSos]=useState(false);
+
+  useEffect(()=>{
+    const saved=localStorage.getItem("okada_user");
+    if(saved){try{setUser(JSON.parse(saved));}catch(e){}}
+  },[]);
+
+  const handleSignOut=()=>{
+    localStorage.removeItem("okada_user");
+    setUser(null);setFlow("home");setTab("home");
+  };
+
+  if(!user) return <WhatsAppLogin onLogin={setUser}/>;
+
+  const inFlow=["booking","finding","tracking","ride","payment"].includes(flow);
+  return(
+    <div style={{fontFamily:"'Nunito',sans-serif",width:"100%",maxWidth:430,minHeight:"100vh",background:C.bg,position:"relative",overflowX:"hidden"}}>
+      {sos&&<SOSModal onClose={()=>setSos(false)}/>}
+      {!inFlow&&tab==="home"&&<HomeScreen user={user} goBook={(p,d,r,f,km)=>{setPickup(p);setDropoff(d);setRegion(r);setFare(f||5);setDistKm(km||1.5);setFlow("booking");}}/>}
+      {!inFlow&&tab==="history"&&<HistoryScreen user={user}/>}
+      {!inFlow&&tab==="driver"&&<DriverScreen/>}
+      {!inFlow&&tab==="profile"&&<ProfileScreen user={user} onSignOut={handleSignOut}/>}
+      {flow==="booking"&&<BookingScreen user={user} pickup={pickup} dropoff={dropoff} region={region} fare={fare} distKm={distKm} onBack={()=>setFlow("home")} onConfirm={(d,p,bid,f)=>{setDriver(d);setPay(p);setBookingId(bid);setFare(f||fare);setFlow("tracking");}}/>}
+      {flow==="tracking"&&<TrackingScreen user={user} bookingId={bookingId} driver={driver} pickup={pickup} dropoff={dropoff} region={region} payMethod={pay} onDriverAccepted={()=>setFlow("ride")} onCancel={()=>{setFlow("home");setPickup("");setDropoff("");setDriver(null);setBookingId("");}}/>}
+      {flow==="finding"&&<FindingScreen driver={driver} onFound={()=>setFlow("ride")}/>}
+      {flow==="ride"&&<RideScreen user={user} driver={driver} pickup={pickup} dropoff={dropoff} region={region} payMethod={pay} fare={fare} onEnd={()=>setFlow("payment")} onSOS={()=>setSos(true)}/>}
+      {flow==="payment"&&<PaymentScreen driver={driver} payMethod={pay} fare={fare} distKm={distKm} onDone={()=>{setFlow("home");setPickup("");setDropoff("");setDriver(null);setRegion("");setBookingId("");setFare(5);setDistKm(1.5);}}/>}
+      {!inFlow&&<Nav tab={tab} setTab={setTab}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
